@@ -1,0 +1,180 @@
+
+                      00001 
+                      00002 ;=======================================================
+                      00003 ;=======================================================
+                      00004 ;  pic-14 SOC Hello World
+                      00005 ;=======================================================
+                      00006 ;=======================================================
+                      00007 
+  00000000            00008 indf    equ   0x00        ; uses indirect pointer register
+  00000001            00009 tmr0    equ   0x01        ; Timer register
+  00000002            00010 pcl     equ   0x02        ; pc low
+  00000003            00011 status  equ   0x03        ; status register
+  00000004            00012 fsr     equ   0x04        ; indirect pointer register
+  00000005            00013 porta   equ   0x05        ; I/O register
+  00000006            00014 portb   equ   0x06        ; I/O register
+  00000007            00015 portc   equ   0x07        ; I/O register
+  00000020            00016 x       equ   0x20        ; a general variable
+  00000021            00017 y       equ   0x21        ; a general variable
+                      00018 
+  00000000            00019 carry   equ   0x00        ; carry bit in status register
+  00000002            00020 zero    equ   0x02        ; zero bit in status register
+  00000098            00021 txsta   equ   0x98        ; UART transmit status register
+  00000019            00022 txreg   equ   0x19        ; UART transmit data register
+  00000098            00023 txsta   equ   0x98        ; UART status/control register
+  00000099            00024 spbrg   equ   0x99        ; UART baud rate register
+  00000011            00025 tmr2    equ   0x11        ; Timer2 count register
+  00000012            00026 t2con   equ   0x12        ; Timer2 control register
+  0000000C            00027 pir1    equ   0x0c        ; interrupt flag register
+  00000092            00028 pr2     equ   0x92        ; Timer2 terminal count register
+                      00029 
+  00000001            00030 t2if    equ   0x01        ; Timer2 interrupt flag
+  00000001            00031 txnf    equ   0x01        ; UART transmit not full
+  00000006            00032 rp1     equ   0x06        ; RAM page bit 1
+  00000005            00033 rp0     equ   0x05        ; RAM page bit 0
+  00000001            00034 f       equ   0x01        ; w/f indicator
+  00000000            00035 w       equ   0x00        ; w/f indicator
+                      00036 
+                      00037 
+                      00038 ;===========================================================
+                      00039 ; Start of program
+                      00040 ;===========================================================
+0000                  00041         org   0x00
+                      00042 
+                      00043         errorlevel -302     ; disable bank 0 warning
+                      00044 
+0000   202F           00045 start   call initu          ; init UART
+0001   2004           00046 main    call puts1          ; print Hello World
+0002   2036           00047         call wait2          ; wait a bit
+0003   2801           00048         goto main           ; spin forever..
+                      00049 
+                      00050 
+                      00051 ;===========================================================
+                      00052 ; Send string to UART
+                      00053 ;===========================================================
+0004   01A0           00054 puts1   clrf x              ; x is string index
+0005   0820           00055 putx1   movf x, w
+0006   200E           00056         call putx3          ; get the next char
+0007   3E00           00057         addlw 0             ; set flags
+0008   1903           00058         btfsc status, zero
+0009   280D           00059         goto putx2          ; done if null
+000A   2029           00060         call putc
+000B   0AA0           00061         incf x, f
+000C   2805           00062         goto putx1          ; keep going
+000D   0008           00063 putx2   return
+                      00064 
+000E   0782           00065 putx3   addwf pcl, f
+000F   3448 3465 346C 00066         dt "Hello World from PIC-14", 0x0d, 0x0a, 0
+       346C 346F 3420 
+       3457 346F 3472 
+       346C 3464 3420 
+       3466 3472 346F 
+       346D 3420 3450 
+       3449 3443 342D 
+       3431 3434 340D 
+       340A 3400 
+                      00067 
+                      00068 
+                      00069 ;===========================================================
+                      00070 ; send character to UART
+                      00071 ;===========================================================
+0029   1683           00072 putc    bsf status, rp0     ; bank 1 
+002A   1C98           00073 putc1   btfss txsta, txnf   ; check status
+002B   282A           00074         goto putc1
+002C   1283           00075         bcf status, rp0     ; bank 0 
+002D   0099           00076         movwf txreg         ; send data in w
+002E   0008           00077         return 
+                      00078 
+                      00079 
+                      00080 ;===========================================================
+                      00081 ; init UART
+                      00082 ;===========================================================
+002F   1683           00083 initu   bsf status, rp0     ; bank 1 
+0030   3020           00084         movlw 0x20          ; enable transmit
+0031   0098           00085         movwf txsta         ; write to control reg
+0032   301A           00086         movlw 0x1a          ; baud rate
+0033   0099           00087         movwf spbrg         ; write to baud reg
+0034   1283           00088         bcf status, rp0     ; bank 0 
+0035   0008           00089         return 
+                      00090 
+                      00091 
+                      00092 ;===========================================================
+                      00093 ; timer 2 wait loop
+                      00094 ;===========================================================
+0036   01A1           00095 wait2   clrf  y             ; clear counter
+0037   1683           00096 wait2a  bsf   status, rp0   ; bank 1 
+0038   30FF           00097         movlw 0xff          ; terminal count value
+0039   0092           00098         movwf pr2           ; write terminal count
+003A   1283           00099         bcf   status, rp0   ; bank 0 
+003B   018C           00100         clrf  pir1          ; clear timer status
+003C   0191           00101         clrf  tmr2          ; clear timer 2
+003D   30FF           00102         movlw 0xff          ; turn timer on
+003E   0092           00103         movwf t2con         ; write to timer 2
+003F   1C8C           00104 wait2x  btfss pir1, t2if    ; check timer status
+0040   283F           00105         goto  wait2x        ; wait loop
+0041   018C           00106         clrf  pir1          ; clear timer status
+0042   0192           00107         clrf  t2con         ; turn timer off
+0043   0FA1           00108         incfsz y, f
+0044   2837           00109         goto  wait2a
+0045   0008           00110         return 
+                      00111 
+                      00112         end
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+__16C72                           00000001
+carry                             00000000
+f                                 00000001
+fsr                               00000004
+indf                              00000000
+initu                             0000002F
+main                              00000001
+pcl                               00000002
+pir1                              0000000C
+porta                             00000005
+portb                             00000006
+portc                             00000007
+pr2                               00000092
+putc                              00000029
+putc1                             0000002A
+puts1                             00000004
+putx1                             00000005
+putx2                             0000000D
+putx3                             0000000E
+rp0                               00000005
+rp1                               00000006
+spbrg                             00000099
+start                             00000000
+status                            00000003
+t2con                             00000012
+t2if                              00000001
+tmr0                              00000001
+tmr2                              00000011
+txnf                              00000001
+txreg                             00000019
+txsta                             00000098
+w                                 00000000
+wait2                             00000036
+wait2a                            00000037
+wait2x                            0000003F
+x                                 00000020
+y                                 00000021
+zero                              00000002
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXX---------- ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    70
+Program Memory Words Free:  1978
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     4 suppressed
+
